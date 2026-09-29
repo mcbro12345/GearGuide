@@ -2,7 +2,7 @@
   "Author": "mcbro",
   "Name": "Gear Guide",
   "InternalName": "GearGuide",
-  "AssemblyVersion": "1.0.1.0",
+  "AssemblyVersion": "1.0.2.0",
   "Description": "A native character-window-style panel showing the best gear for your current class and level, filtered by what you own, what's on the market board, vendor gear, crafted gear and more. Every slot has the game's own item tooltip and context menu, and the Recommended Gear button equips the picks you own.",
   "ApplicableVersion": "any",
   "Tags": ["gear", "equipment", "upgrade", "recommended", "market"],
