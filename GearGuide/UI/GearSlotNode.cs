@@ -1,6 +1,7 @@
 using System;
 using System.Numerics;
 using FFXIVClientStructs.FFXIV.Component.GUI;
+using KamiToolKit.Classes;
 using KamiToolKit.Nodes;
 using KamiToolKit.Nodes.Simplified;
 
@@ -26,6 +27,7 @@ internal sealed unsafe class GearSlotNode : ResNode
     private static readonly TimeSpan ClickDebounce = TimeSpan.FromMilliseconds(150);
 
     private readonly DragDropNode cell;
+    private readonly ImageNode highlight;
     private readonly SimpleImageNode silhouette;
     private readonly SimpleImageNode upgradeBadge;
     private DateTime lastClick;
@@ -53,9 +55,27 @@ internal sealed unsafe class GearSlotNode : ResNode
         cell.IconId = 0;
         cell.OnRollOver = _ => Hover();
         cell.OnRollOut = _ => EndHover();
+        // The item tooltip is shown by KamiToolKit's own mouse-over handler, and
+        // the drag-drop roll-over events don't always arrive, so the glow also
+        // follows plain mouse-over and mouse-out.
+        cell.AddEvent(AtkEventType.MouseOver, Hover);
+        cell.AddEvent(AtkEventType.MouseOut, EndHover);
         cell.AddEvent(AtkEventType.DragDropClick, Click);
         cell.AddEvent(AtkEventType.MouseClick, Click);
         cell.AttachNode(this);
+
+        // The game's own hovered-slot glow: IconA_Frame part 16, drawn 72x72
+        // and offset so it frames the 44px cell.
+        highlight = new ImageNode
+        {
+            Position = new Vector2(cellX - 14.0f, 1.0f - 12.0f),
+            Size = new Vector2(72.0f, 72.0f),
+            PartId = 16,
+            WrapMode = KamiToolKit.Enums.WrapMode.Tile,
+            IsVisible = false,
+        };
+        IconNodeTextureHelper.LoadIconAFrameTexture(highlight);
+        highlight.AttachNode(this);
 
         // The character window draws the silhouette over the empty cell.
         silhouette = new SimpleImageNode
@@ -84,6 +104,7 @@ internal sealed unsafe class GearSlotNode : ResNode
     public void SetChoice(GearChoice? choice, bool blocked, bool ownedUpgrade)
     {
         Choice = choice;
+        if (choice == null) highlight.IsVisible = false;
         cell.IconId = choice == null ? 0 : choice.Hq ? choice.Item.Icon + 1_000_000 : choice.Item.Icon;
         silhouette.IsVisible = choice == null;
         silhouette.Alpha = blocked ? 0.35f : 1.0f;
@@ -97,11 +118,14 @@ internal sealed unsafe class GearSlotNode : ResNode
 
     private void Hover()
     {
-        if (Choice != null) cell.ShowTooltip();
+        if (Choice == null) return;
+        highlight.IsVisible = true;
+        cell.ShowTooltip();
     }
 
     private void EndHover()
     {
+        highlight.IsVisible = false;
         cell.HideTooltip();
     }
 

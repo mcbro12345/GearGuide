@@ -37,6 +37,8 @@ public sealed class Plugin : IDalamudPlugin, IDisposable
     private GearGuideWindow? window;
     private JobProfile? profile;
     private GearPlan? plan;
+    // The plan being worked out on a background thread, if any.
+    private Task<GearGuideView>? planning;
     private bool dirty = true;
     private DateTime nextProfileCheck;
 
@@ -49,6 +51,7 @@ public sealed class Plugin : IDalamudPlugin, IDisposable
         configuration.Save();
 
         catalogLoad = Task.Run(ItemCatalog.Build);
+        _ = Task.Run(Prewarm.Run);
         settingsWindow = new SettingsWindow(configuration);
         windowSystem.AddWindow(settingsWindow);
         recommendedGearRedirect = new RecommendedGearRedirect(configuration, OpenWindow);
@@ -172,21 +175,39 @@ public sealed class Plugin : IDalamudPlugin, IDisposable
 
         window.CanEquip = plan != null && plan.Upgrades().Any() && !equipper.IsRunning && GearEquipper.CanEquipNow;
 
-        if (!dirty || profile == null || !catalogLoad.IsCompletedSuccessfully) return;
-        dirty = false;
-        Replan(profile, catalogLoad.Result);
-    }
-
-    private void Replan(JobProfile current, ItemCatalog catalog)
-    {
-        planner ??= new GearPlanner(catalog, configuration, market);
-        var owned = OwnedGear.Scan();
-        plan = planner.Plan(current, owned);
-        window!.Show(new GearGuideView
+        if (planning is { IsCompleted: true } done)
         {
-            Profile = current,
-            Plan = plan,
-            Stats = StatLines(current, plan, owned, catalog),
+            planning = null;
+            if (done.IsCompletedSuccessfully)
+            {
+                plan = done.Result.Plan;
+                window.Show(done.Result);
+            }
+            else
+            {
+                Services.Log.Error(done.Exception!, "Couldn't work out the recommended gear.");
+            }
+        }
+
+        if (!dirty || planning != null || profile == null || !catalogLoad.IsCompletedSuccessfully) return;
+        dirty = false;
+        // Only the inventory is read here, on the game thread. Scoring every
+        // piece of gear in the game happens in the background, so opening the
+        // window or flipping a filter never stalls a frame.
+        var owned = OwnedGear.Scan();
+        var forProfile = profile;
+        var catalog = catalogLoad.Result;
+        planner ??= new GearPlanner(catalog, configuration, market);
+        var gearPlanner = planner;
+        planning = Task.Run(() =>
+        {
+            var newPlan = gearPlanner.Plan(forProfile, owned);
+            return new GearGuideView
+            {
+                Profile = forProfile,
+                Plan = newPlan,
+                Stats = StatLines(forProfile, newPlan, owned, catalog),
+            };
         });
     }
 

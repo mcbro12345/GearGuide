@@ -34,7 +34,7 @@ internal sealed class MarketBoard : IDisposable
 
     public MarketBoard()
     {
-        http.DefaultRequestHeaders.UserAgent.ParseAdd("GearGuide-Dalamud/0.1");
+        http.DefaultRequestHeaders.UserAgent.ParseAdd("GearGuide-Dalamud/1.0");
     }
 
     public void Dispose() => http.Dispose();
