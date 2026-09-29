@@ -53,7 +53,6 @@ internal sealed unsafe class GearGuideWindow : NativeAddon
         (GearSlot.Wrists, new(274, 249), false, new(96, 104)),
         (GearSlot.RingRight, new(274, 296), false, new(128, 104)),
         (GearSlot.RingLeft, new(274, 343), false, new(128, 104)),
-        (GearSlot.SoulCrystal, new(274, 390), false, new(192, 104)),
     ];
 
     private readonly Configuration configuration;
@@ -110,6 +109,11 @@ internal sealed unsafe class GearGuideWindow : NativeAddon
     protected override void OnUpdate(AtkUnitBase* addon)
     {
         if (equipButton != null && equipButton.IsEnabled != CanEquip) equipButton.IsEnabled = CanEquip;
+
+        var framework = FFXIVClientStructs.FFXIV.Client.System.Framework.Framework.Instance();
+        if (framework == null) return;
+        var cursor = new Vector2(framework->CursorInputs.PositionX, framework->CursorInputs.PositionY);
+        foreach (var node in slots.Values) node.UpdateHighlight(cursor);
     }
 
     public void Show(GearGuideView newView)
@@ -236,28 +240,6 @@ internal sealed unsafe class GearGuideWindow : NativeAddon
             node.AttachNode(this);
             slots[slot] = node;
         }
-
-        // Facewear has a slot in the character window but no stats, so it's
-        // never recommended; its slot stays empty.
-        var facewear = new DragDropNode
-        {
-            Position = origin + new Vector2(12, 343),
-            Size = new Vector2(44, 44),
-            IsDraggable = false,
-            AcceptedType = DragDropType.Nothing,
-        };
-        facewear.IconId = 0;
-        facewear.AttachNode(this);
-        var glasses = new SimpleImageNode
-        {
-            Position = origin + new Vector2(18, 350),
-            Size = new Vector2(32, 32),
-            TextureCoordinates = new Vector2(0, 188),
-            TextureSize = new Vector2(32, 32),
-            Alpha = 0.5f,
-        };
-        glasses.LoadTexture(CharacterTexture);
-        glasses.AttachNode(this);
     }
 
     // The round toggles under the middle panel.
@@ -307,7 +289,8 @@ internal sealed unsafe class GearGuideWindow : NativeAddon
 
         var upgradeSlots = plan.Upgrades().Select(upgrade => upgrade.Slot).ToHashSet();
         foreach (var (slot, node) in slots)
-            node.SetChoice(plan.Picks.GetValueOrDefault(slot), plan.Blocked.ContainsKey(slot), upgradeSlots.Contains(slot));
+            node.SetChoice(plan.AlreadyWorn.Contains(slot) ? null : plan.Picks.GetValueOrDefault(slot),
+                plan.Blocked.ContainsKey(slot), upgradeSlots.Contains(slot));
 
         itemLevelText!.String = plan.AverageItemLevel.ToString("D4");
         float textWidth = itemLevelText.GetTextDrawSize().X;

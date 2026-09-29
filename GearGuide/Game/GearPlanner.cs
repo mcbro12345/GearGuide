@@ -20,17 +20,19 @@ internal sealed class GearPlan
     // Slots left empty because another pick covers them (a two-handed weapon
     // covers the off hand), mapped to the slot of the piece covering them.
     public required Dictionary<GearSlot, GearSlot> Blocked { get; init; }
+    // Slots where what you're wearing is the pick or scores at least as well;
+    // the window leaves these empty.
+    public required HashSet<GearSlot> AlreadyWorn { get; init; }
 
     public int AverageItemLevel
     {
         get
         {
-            // The game's average: twelve slots (no soul crystal), with a piece
-            // that covers other slots counted once for each slot it fills.
+            // The game's average: twelve slots, with a piece that covers other
+            // slots counted once for each slot it fills.
             int total = 0;
             foreach (var slot in GearSlots.All)
             {
-                if (slot == GearSlot.SoulCrystal) continue;
                 if (Picks.TryGetValue(slot, out var pick)) total += pick.Item.ItemLevel;
                 else if (Blocked.TryGetValue(slot, out var by) && Picks.TryGetValue(by, out var cover)) total += cover.Item.ItemLevel;
             }
@@ -78,7 +80,7 @@ internal sealed class GearPlanner(ItemCatalog catalog, Configuration configurati
     private static readonly GearSlot[] PickOrder =
     [
         GearSlot.MainHand, GearSlot.OffHand, GearSlot.Body, GearSlot.Legs, GearSlot.Head, GearSlot.Hands,
-        GearSlot.Feet, GearSlot.Ears, GearSlot.Neck, GearSlot.Wrists, GearSlot.SoulCrystal,
+        GearSlot.Feet, GearSlot.Ears, GearSlot.Neck, GearSlot.Wrists,
     ];
 
     public GearPlan Plan(JobProfile profile, IReadOnlyList<OwnedPiece> owned)
@@ -106,7 +108,48 @@ internal sealed class GearPlanner(ItemCatalog catalog, Configuration configurati
         var plan = Choose(Sorted(pools));
         var ownedPlan = Choose(Sorted(ownedPools));
         RequestMarketLookups(plan, marketWanted);
-        return new GearPlan { Profile = profile, Picks = plan.Picks, Blocked = plan.Blocked, OwnedPicks = ownedPlan.Picks };
+        return new GearPlan
+        {
+            Profile = profile,
+            Picks = plan.Picks,
+            Blocked = plan.Blocked,
+            OwnedPicks = ownedPlan.Picks,
+            AlreadyWorn = AlreadyWorn(profile, owned, plan.Picks),
+        };
+    }
+
+    private HashSet<GearSlot> AlreadyWorn(JobProfile profile, IReadOnlyList<OwnedPiece> owned, Dictionary<GearSlot, GearChoice> picks)
+    {
+        var wornScores = new Dictionary<GearSlot, float>();
+        var wornRings = new List<float>();
+        foreach (var piece in owned)
+        {
+            if (!piece.IsEquipped || !catalog.ById.TryGetValue(piece.ItemId, out var item)) continue;
+            float score = profile.Score(item, piece.Hq);
+            if (item.Slot == GearSlot.RingRight) wornRings.Add(score);
+            else wornScores[(GearSlot)piece.Slot] = score;
+        }
+
+        var worn = new HashSet<GearSlot>();
+        foreach (var (slot, pick) in picks)
+        {
+            if (slot is GearSlot.RingRight or GearSlot.RingLeft) continue;
+            if (pick.Owned is { IsEquipped: true } || (wornScores.TryGetValue(slot, out var score) && score >= pick.Score))
+                worn.Add(slot);
+        }
+
+        // Either ring fits either finger, so the better picked ring is held
+        // against the better worn ring, and the other against the other.
+        wornRings.Sort((a, b) => b.CompareTo(a));
+        var ringPicks = new[] { GearSlot.RingRight, GearSlot.RingLeft }
+            .Where(picks.ContainsKey).OrderByDescending(slot => picks[slot].Score).ToList();
+        for (int i = 0; i < ringPicks.Count; i++)
+        {
+            var pick = picks[ringPicks[i]];
+            if (pick.Owned is { IsEquipped: true } || (i < wornRings.Count && wornRings[i] >= pick.Score))
+                worn.Add(ringPicks[i]);
+        }
+        return worn;
     }
 
     private static List<GearChoice> PoolFor(Dictionary<GearSlot, List<GearChoice>> pools, GearSlot slot)

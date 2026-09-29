@@ -22,6 +22,7 @@ internal sealed unsafe class GearSlotNode : ResNode
     // cell. It isn't drawn here, but the cells keep their places.
     private const float BarWidth = 8.0f;
     private const float CellSize = 44.0f;
+    private const float HoverLift = 16.0f / 255.0f;
     // Repeated click events from one click (drag-drop click and mouse click)
     // open the menu once.
     private static readonly TimeSpan ClickDebounce = TimeSpan.FromMilliseconds(150);
@@ -53,11 +54,13 @@ internal sealed unsafe class GearSlotNode : ResNode
             AcceptedType = DragDropType.Nothing,
         };
         cell.IconId = 0;
+        // Every slot shows its name, as in the character window; a slot with a
+        // piece in it shows the item tooltip alongside.
+        cell.TextTooltip = GearSlots.TooltipName(slot);
         cell.OnRollOver = _ => Hover();
         cell.OnRollOut = _ => EndHover();
-        // The item tooltip is shown by KamiToolKit's own mouse-over handler, and
-        // the drag-drop roll-over events don't always arrive, so the glow also
-        // follows plain mouse-over and mouse-out.
+        // Plain mouse-over and mouse-out too, since the drag-drop roll-over
+        // events don't always arrive.
         cell.AddEvent(AtkEventType.MouseOver, Hover);
         cell.AddEvent(AtkEventType.MouseOut, EndHover);
         cell.AddEvent(AtkEventType.DragDropClick, Click);
@@ -104,7 +107,6 @@ internal sealed unsafe class GearSlotNode : ResNode
     public void SetChoice(GearChoice? choice, bool blocked, bool ownedUpgrade)
     {
         Choice = choice;
-        if (choice == null) highlight.IsVisible = false;
         cell.IconId = choice == null ? 0 : choice.Hq ? choice.Item.Icon + 1_000_000 : choice.Item.Icon;
         silhouette.IsVisible = choice == null;
         silhouette.Alpha = blocked ? 0.35f : 1.0f;
@@ -118,15 +120,31 @@ internal sealed unsafe class GearSlotNode : ResNode
 
     private void Hover()
     {
-        if (Choice == null) return;
-        highlight.IsVisible = true;
+        // KamiToolKit anchors the tooltip to the cell, so it sits in the same
+        // place every time.
         cell.ShowTooltip();
     }
 
     private void EndHover()
     {
-        highlight.IsVisible = false;
         cell.HideTooltip();
+    }
+
+    // Lights the slot while the cursor is over it: the glow around an item, or
+    // a brighter silhouette on an empty slot, as in the character window.
+    // Checked every frame, since the mouse-over and mouse-out events can go
+    // missing (when the tooltip or the item menu opens, say) and leave it on
+    // or off.
+    public void UpdateHighlight(Vector2 cursor)
+    {
+        bool hovered = cell.CheckCollision(cursor);
+        highlight.IsVisible = Choice != null && hovered;
+        // The character window's drag-drop cell lifts its frame by 16/255 on
+        // hover (DragDrop timeline label 2 in Character.uld); the silhouette
+        // drawn over it here gets the same lift so the whole slot brightens.
+        var lift = Choice == null && hovered ? new Vector3(HoverLift) : Vector3.Zero;
+        cell.DragDropBackgroundNode.AddColor = lift;
+        silhouette.AddColor = lift;
     }
 
     private void Click(AtkEventListener* listener, AtkEventType type, int param, AtkEvent* atkEvent, AtkEventData* data)

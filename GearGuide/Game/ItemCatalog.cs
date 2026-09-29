@@ -93,7 +93,6 @@ internal sealed class ItemCatalog
             (category.Legs, GearSlot.Legs), (category.Feet, GearSlot.Feet), (category.Ears, GearSlot.Ears),
             (category.Neck, GearSlot.Neck), (category.Wrists, GearSlot.Wrists),
             (category.FingerR, GearSlot.RingRight), (category.FingerL, GearSlot.RingLeft),
-            (category.SoulCrystal, GearSlot.SoulCrystal),
         ];
         var occupies = fields.Where(field => field.Value > 0).Select(field => field.Slot).ToList();
         blocks = fields.Where(field => field.Value < 0).Select(field => field.Slot).ToArray();

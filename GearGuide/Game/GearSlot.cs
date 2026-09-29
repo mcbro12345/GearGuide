@@ -16,7 +16,6 @@ public enum GearSlot
     Wrists = 10,
     RingRight = 11,
     RingLeft = 12,
-    SoulCrystal = 13,
 }
 
 internal static class GearSlots
@@ -25,7 +24,6 @@ internal static class GearSlots
     [
         GearSlot.MainHand, GearSlot.OffHand, GearSlot.Head, GearSlot.Body, GearSlot.Hands, GearSlot.Legs,
         GearSlot.Feet, GearSlot.Ears, GearSlot.Neck, GearSlot.Wrists, GearSlot.RingRight, GearSlot.RingLeft,
-        GearSlot.SoulCrystal,
     ];
 
     public static string Name(GearSlot slot) => slot switch
@@ -33,8 +31,16 @@ internal static class GearSlots
         GearSlot.MainHand => "Main Hand",
         GearSlot.OffHand => "Off Hand",
         GearSlot.RingRight or GearSlot.RingLeft => "Ring",
-        GearSlot.SoulCrystal => "Soul Crystal",
         _ => slot.ToString(),
+    };
+
+    // The name the character window's tooltip gives an empty slot.
+    public static string TooltipName(GearSlot slot) => slot switch
+    {
+        GearSlot.Ears => "Earrings",
+        GearSlot.Neck => "Necklace",
+        GearSlot.Wrists => "Bracelets",
+        _ => Name(slot),
     };
 
     // Rings share one candidate pool: an item that fits one ring slot fits both.
