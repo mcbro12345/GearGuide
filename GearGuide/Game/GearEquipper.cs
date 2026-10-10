@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Dalamud.Game.ClientState.Conditions;
 using FFXIVClientStructs.FFXIV.Client.Game;
+using FFXIVClientStructs.FFXIV.Client.UI.Misc;
 
 using GearGuide.Base;
 
@@ -18,6 +19,8 @@ internal sealed unsafe class GearEquipper
     private readonly Queue<(GearSlot Slot, uint ItemId, bool Hq)> queue = new();
     private (GearSlot Slot, uint ItemId, bool Hq)? current;
     private DateTime currentStarted;
+    // Set while a run is under way, so the gear set is saved once when it ends.
+    private bool saveGearsetWhenDone;
 
     public bool IsRunning => current != null || queue.Count > 0;
 
@@ -35,6 +38,7 @@ internal sealed unsafe class GearEquipper
         }
         foreach (var (slot, choice) in plan.Upgrades())
             queue.Enqueue((slot, choice.Item.Id, choice.Hq));
+        saveGearsetWhenDone = queue.Count > 0;
     }
 
     public void Update()
@@ -45,10 +49,16 @@ internal sealed unsafe class GearEquipper
             current = null;
         }
 
-        if (queue.Count == 0) return;
+        if (queue.Count == 0)
+        {
+            if (saveGearsetWhenDone) SaveCurrentGearset();
+            saveGearsetWhenDone = false;
+            return;
+        }
         if (!CanEquipNow)
         {
             queue.Clear();
+            saveGearsetWhenDone = false;
             Services.Chat.PrintError("Stopped equipping: you can't change gear right now.", "Gear Guide");
             return;
         }
@@ -64,6 +74,19 @@ internal sealed unsafe class GearEquipper
         manager->MoveItemSlot(source.Container, (ushort)source.Slot, InventoryType.EquippedItems, (ushort)next.Slot, true);
         current = next;
         currentStarted = DateTime.UtcNow;
+    }
+
+    // Saves what's now worn to the gear set in use, as the Character window's
+    // Update Gear Set button does, so the new pieces stay in the set.
+    private static void SaveCurrentGearset()
+    {
+        var gearsets = RaptureGearsetModule.Instance();
+        if (gearsets == null) return;
+        int id = gearsets->CurrentGearsetIndex;
+        if (id < 0 || !gearsets->IsValidGearset(id)) return;
+        var gearset = gearsets->GetGearset(id);
+        if (gearset == null || gearset->ClassJob != Services.PlayerState.ClassJob.RowId) return;
+        gearsets->UpdateGearset(id);
     }
 
     private static bool IsWorn((GearSlot Slot, uint ItemId, bool Hq) move)

@@ -13,7 +13,7 @@ A Dalamud plugin for FFXIV that shows the best gear for your current class and l
   - **Market Board**: gear other players can sell you.
   - **Other Sources**: gear you can't buy or craft, such as dungeon drops, tomestone and seal exchanges and quest rewards.
   - **Live Listings**: when on, Market Board only counts gear that's listed on your data center right now, checked with [Universalis](https://universalis.app). When off, anything sellable counts.
-- **Recommended Gear button.** Like the Character window's, it puts on the best set you can make from the gear you own, one piece at a time, even where a slot shows a better piece you'd still have to get (a high-quality copy, say). Slots where you own an upgrade you aren't wearing get a badge.
+- **Recommended Gear button.** Like the Character window's, it puts on the best set you can make from the gear you own, one piece at a time, even where a slot shows a better piece you'd still have to get (a high-quality copy, say). Slots where you own an upgrade you aren't wearing get a badge. When it finishes, it saves the new gear to the gear set you have equipped, like pressing Update Gear Set.
 - **Stat comparison.** Where the Character window shows your character, Gear Guide lists the recommended set's key stats next to what you're wearing now, with the difference.
 - By default, the **Recommended Gear** button in the game's Character window opens Gear Guide instead of the game's Recommended Gear window. Turn **Recommended Gear button opens Gear Guide** off in the settings to get the game's window back.
 
