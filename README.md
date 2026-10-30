@@ -17,7 +17,7 @@ A Dalamud plugin for FFXIV that shows the best gear for your current class and l
 - **Stat comparison.** Where the Character window shows your character, Gear Guide lists the recommended set's key stats next to what you're wearing now, with the difference.
 - By default, the **Recommended Gear** button in the game's Character window opens Gear Guide instead of the game's Recommended Gear window. Turn **Recommended Gear button opens Gear Guide** off in the settings to get the game's window back.
 
-Recommendations follow your job, level, race, gender and Grand Company. For combat jobs pieces are rated mainly on your main stat and weapon damage, then secondary stats; crafters on Craftsmanship, Control and CP; gatherers on Gathering, Perception and GP. A piece that covers other slots (a two-handed weapon, a robe) is only recommended if it beats the separate pieces it replaces.
+Recommendations follow your job, level, race, gender and Grand Company. The highest item level wins, as in the game's own recommendations, among pieces that have the stats your job uses; stats only decide between equal item levels. A piece that covers other slots (a two-handed weapon, a robe) counts once for each slot and is only recommended if it beats the separate pieces it replaces.
 
 ## Commands
 

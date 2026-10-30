@@ -7,7 +7,7 @@ using GearGuide.Base;
 namespace GearGuide.Game;
 
 // One recommended piece and how to get it.
-public sealed record GearChoice(GearItem Item, bool Hq, GearSource Source, float Score, OwnedPiece? Owned, MarketPrice? Price)
+public sealed record GearChoice(GearItem Item, bool Hq, GearSource Source, double Score, OwnedPiece? Owned, MarketPrice? Price)
 {
     // Item ids of high-quality pieces are offset by 1,000,000, as in the game.
     public uint TooltipItemId => Hq ? Item.Id + 1_000_000 : Item.Id;
@@ -88,7 +88,7 @@ internal sealed class GearPlanner(ItemCatalog catalog, Configuration configurati
         var ownedById = owned.GroupBy(piece => piece.ItemId).ToDictionary(group => group.Key, group => group.ToList());
         var pools = new Dictionary<GearSlot, List<GearChoice>>();
         var ownedPools = new Dictionary<GearSlot, List<GearChoice>>();
-        var marketWanted = new Dictionary<GearSlot, List<(uint Id, float Score)>>();
+        var marketWanted = new Dictionary<GearSlot, List<(uint Id, double Score)>>();
 
         foreach (var item in catalog.Items)
         {
@@ -120,12 +120,12 @@ internal sealed class GearPlanner(ItemCatalog catalog, Configuration configurati
 
     private HashSet<GearSlot> AlreadyWorn(JobProfile profile, IReadOnlyList<OwnedPiece> owned, Dictionary<GearSlot, GearChoice> picks)
     {
-        var wornScores = new Dictionary<GearSlot, float>();
-        var wornRings = new List<float>();
+        var wornScores = new Dictionary<GearSlot, double>();
+        var wornRings = new List<double>();
         foreach (var piece in owned)
         {
             if (!piece.IsEquipped || !catalog.ById.TryGetValue(piece.ItemId, out var item)) continue;
-            float score = profile.Score(item, piece.Hq);
+            double score = profile.Score(item, piece.Hq);
             if (item.Slot == GearSlot.RingRight) wornRings.Add(score);
             else wornScores[(GearSlot)piece.Slot] = score;
         }
@@ -162,7 +162,7 @@ internal sealed class GearPlanner(ItemCatalog catalog, Configuration configurati
         return pools;
     }
 
-    private GearChoice? BestObtainable(JobProfile profile, GearItem item, Dictionary<GearSlot, List<(uint, float)>> marketWanted)
+    private GearChoice? BestObtainable(JobProfile profile, GearItem item, Dictionary<GearSlot, List<(uint, double)>> marketWanted)
     {
         GearChoice? best = null;
         void Consider(GearSource source, bool hq, MarketPrice? price = null)
@@ -208,14 +208,15 @@ internal sealed class GearPlanner(ItemCatalog catalog, Configuration configurati
             if (blocked.ContainsKey(slot)) continue;
             if (!pools.TryGetValue(slot, out var pool)) continue;
 
-            // A piece covering other slots only wins if it beats the best
-            // separate pieces for all the slots it takes up.
+            // A piece covering other slots counts once per slot, as in the
+            // average item level, and only wins if that beats the best
+            // separate pieces for all those slots.
             GearChoice? best = null;
-            float bestValue = float.MinValue;
+            double bestValue = double.MinValue;
             foreach (var choice in pool)
             {
                 if (choice.Item.Blocks.Any(other => picks.ContainsKey(other) || blocked.ContainsKey(other))) continue;
-                float value = choice.Score - choice.Item.Blocks.Sum(other => BestSingle(other)?.Score ?? 0.0f);
+                double value = choice.Score * (1 + choice.Item.Blocks.Length) - choice.Item.Blocks.Sum(other => BestSingle(other)?.Score ?? 0.0);
                 if (value > bestValue)
                 {
                     best = choice;
@@ -244,14 +245,14 @@ internal sealed class GearPlanner(ItemCatalog catalog, Configuration configurati
 
     // Looks up the market pieces that would beat each slot's current pick.
     private void RequestMarketLookups((Dictionary<GearSlot, GearChoice> Picks, Dictionary<GearSlot, GearSlot> Blocked) plan,
-        Dictionary<GearSlot, List<(uint Id, float Score)>> marketWanted)
+        Dictionary<GearSlot, List<(uint Id, double Score)>> marketWanted)
     {
         var ids = new List<uint>();
         foreach (var (slot, wanted) in marketWanted)
         {
-            float current = slot == GearSlot.RingRight
-                ? plan.Picks.TryGetValue(GearSlot.RingLeft, out var ring) ? ring.Score : float.MinValue
-                : plan.Picks.TryGetValue(slot, out var pick) ? pick.Score : float.MinValue;
+            double current = slot == GearSlot.RingRight
+                ? plan.Picks.TryGetValue(GearSlot.RingLeft, out var ring) ? ring.Score : double.MinValue
+                : plan.Picks.TryGetValue(slot, out var pick) ? pick.Score : double.MinValue;
             ids.AddRange(wanted.Where(entry => entry.Score > current)
                 .OrderByDescending(entry => entry.Score)
                 .Take(MarketLookupsPerSlot)

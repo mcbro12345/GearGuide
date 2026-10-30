@@ -16,6 +16,8 @@ internal sealed class JobProfile
     private const uint DisciplesOfHand = 33;
     private const byte TankRole = 1;
     private const byte HealerRole = 4;
+    // One item level outranks any stat total a piece could have.
+    private const double ItemLevelRank = 1_000_000.0;
 
     // BaseParam ids.
     private const byte Vitality = 3;
@@ -37,6 +39,7 @@ internal sealed class JobProfile
 
     private readonly HashSet<uint> categories = new();
     private readonly Dictionary<byte, float> weights = new();
+    private readonly byte[] keyStats;
 
     public uint JobId { get; }
     public string JobName { get; }
@@ -67,11 +70,12 @@ internal sealed class JobProfile
                 if (column.GetValue(category) is true) categories.Add(category.RowId);
 
         BuildWeights(job);
+        keyStats = weights.Where(pair => pair.Value >= 0.25f).OrderByDescending(pair => pair.Value).ThenBy(pair => pair.Key)
+            .Select(pair => pair.Key).ToArray();
     }
 
     // The stats this job cares about, most important first.
-    public IEnumerable<byte> KeyStats
-        => weights.Where(pair => pair.Value >= 0.25f).OrderByDescending(pair => pair.Value).ThenBy(pair => pair.Key).Select(pair => pair.Key);
+    public IEnumerable<byte> KeyStats => keyStats;
 
     public bool CanWear(GearItem item)
     {
@@ -80,15 +84,21 @@ internal sealed class JobProfile
         return item.EquipRace <= 1 || RaceAllows(item.EquipRace);
     }
 
-    // How good a piece is for this job. Stats are weighted by how much the job
-    // wants them; defence and item level only separate otherwise equal pieces.
-    public float Score(GearItem item, bool hq)
+    // How good a piece is for this job. Item level decides, as in the game's
+    // own recommendations, and weighted stats only separate equal item levels.
+    // A piece with none of the job's key stats ranks below any piece that has
+    // them, whatever its item level, so a wrong-stat piece can't win on level.
+    public double Score(GearItem item, bool hq)
     {
-        float score = 0.0f;
+        double score = 0.001 * item.ItemLevel;
         foreach (var (param, weight) in weights)
             score += weight * item.Stat(param, hq);
-        score += 0.02f * (item.Stat(GearItem.DefenseParam, hq) + item.Stat(GearItem.MagicDefenseParam, hq));
-        return score + 0.001f * item.ItemLevel;
+        score += 0.02 * (item.Stat(GearItem.DefenseParam, hq) + item.Stat(GearItem.MagicDefenseParam, hq));
+
+        foreach (byte stat in keyStats)
+            if (item.Stat(stat, hq) > 0)
+                return item.ItemLevel * ItemLevelRank + score;
+        return score;
     }
 
     private void BuildWeights(ClassJob job)
