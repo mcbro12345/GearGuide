@@ -25,6 +25,9 @@ public sealed class Configuration : IPluginConfiguration
     // instead of the game's Recommended Gear window.
     public bool ReplaceRecommendedGearButton { get; set; } = true;
 
+    // Rolls on loot in duties. Off by default, since a roll can't be undone.
+    public bool AutoRollLoot { get; set; }
+
     public void Migrate() => Version = CurrentVersion;
 
     public void Save() => Services.PluginInterface.SavePluginConfig(this);

@@ -31,6 +31,7 @@ public sealed class Plugin : IDalamudPlugin, IDisposable
     private readonly WindowSystem windowSystem = new("GearGuide");
     private readonly SettingsWindow settingsWindow;
     private readonly RecommendedGearRedirect recommendedGearRedirect;
+    private readonly AutoRoller autoRoller;
     private readonly Task<ItemCatalog> catalogLoad;
     private readonly Task nativeUiInitialization;
     private GearPlanner? planner;
@@ -55,6 +56,7 @@ public sealed class Plugin : IDalamudPlugin, IDisposable
         settingsWindow = new SettingsWindow(configuration);
         windowSystem.AddWindow(settingsWindow);
         recommendedGearRedirect = new RecommendedGearRedirect(configuration, OpenWindow);
+        autoRoller = new AutoRoller(configuration);
 
         nativeUiInitialization = KamiToolKitLibrary.InitializeAsync(Services.PluginInterface, "Gear Guide")
             .ContinueWith(task =>
@@ -157,6 +159,7 @@ public sealed class Plugin : IDalamudPlugin, IDisposable
     {
         itemMenu.OnFrameworkUpdate();
         equipper.Update();
+        if (catalogLoad.IsCompletedSuccessfully) autoRoller.Update(catalogLoad.Result);
         if (window is not { IsOpen: true }) return;
 
         if (DateTime.UtcNow >= nextProfileCheck)

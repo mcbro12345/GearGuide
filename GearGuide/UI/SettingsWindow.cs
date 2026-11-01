@@ -30,6 +30,10 @@ internal sealed class SettingsWindow : Window
         Toggle("Recommended Gear button opens Gear Guide", configuration.ReplaceRecommendedGearButton,
             v => configuration.ReplaceRecommendedGearButton = v,
             "The Recommended Gear button in the game's Character window opens Gear Guide instead of the game's Recommended Gear window.");
+
+        Section("DUTY LOOT");
+        Toggle("Roll on loot automatically", configuration.AutoRollLoot, v => configuration.AutoRollLoot = v,
+            "In duties, rolls Need on gear that beats everything you own for your current job and Greed on everything else. Items with a weekly limit are left for you. Each roll is printed in chat.");
     }
 
     private void Toggle(string label, bool value, Action<bool> set, string? tooltip = null)
