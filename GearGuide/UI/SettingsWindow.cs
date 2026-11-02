@@ -33,7 +33,7 @@ internal sealed class SettingsWindow : Window
 
         Section("DUTY LOOT");
         Toggle("Roll on loot automatically", configuration.AutoRollLoot, v => configuration.AutoRollLoot = v,
-            "In duties, rolls Need on gear that beats everything you own for your current job and Greed on everything else. Items with a weekly limit are left for you. Each roll is printed in chat.");
+            "In duties, rolls Need on your best upgrades for your current job, Greed on other upgrades once Need is used up, and passes on other gear. Anything that isn't gear, and items with a weekly limit, are left for you. Each roll is printed in chat.");
     }
 
     private void Toggle(string label, bool value, Action<bool> set, string? tooltip = null)
